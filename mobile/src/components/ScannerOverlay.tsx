@@ -15,12 +15,16 @@ interface ScannerOverlayProps {
   points: number | null;
   scanning: boolean;
   onLogout: () => void;
+  onHistory: () => void;
+  onProfile: () => void;
 }
 
 export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
   points,
   scanning,
   onLogout,
+  onHistory,
+  onProfile,
 }) => {
   const sideOverlayWidth = (SCREEN_WIDTH - CUTOUT_SIZE) / 2;
 
@@ -66,11 +70,11 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
       {/* Bottom section */}
       <View style={styles.bottomSection}>
         <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.bottomButton} disabled>
+          <TouchableOpacity style={styles.bottomButton} onPress={onHistory}>
             <Text style={styles.bottomButtonIcon}>&#128337;</Text>
             <Text style={styles.bottomButtonLabel}>History</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.bottomButton} disabled>
+          <TouchableOpacity style={styles.bottomButton} onPress={onProfile}>
             <Text style={styles.bottomButtonIcon}>&#128100;</Text>
             <Text style={styles.bottomButtonLabel}>Profile</Text>
           </TouchableOpacity>

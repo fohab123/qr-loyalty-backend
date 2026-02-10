@@ -39,6 +39,43 @@ export interface ScanResponse {
   }>;
 }
 
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: 'user' | 'admin';
+  pointsBalance: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TransactionItem {
+  id: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  pointsAwarded: number;
+}
+
+export interface Transaction {
+  id: string;
+  date: string;
+  totalAmount: number;
+  pointsEarned: number;
+  store: {
+    id: string;
+    name: string;
+  };
+  items: TransactionItem[];
+  createdAt: string;
+}
+
+export interface UpdateProfileRequest {
+  name?: string;
+  email?: string;
+}
+
 export interface ApiError {
   statusCode: number;
   message: string | string[];

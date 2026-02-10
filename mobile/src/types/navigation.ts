@@ -5,4 +5,6 @@ export type AuthStackParamList = {
 
 export type MainStackParamList = {
   Scanner: undefined;
+  History: undefined;
+  Profile: undefined;
 };

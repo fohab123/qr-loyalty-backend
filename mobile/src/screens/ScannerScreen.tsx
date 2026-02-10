@@ -2,13 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Alert, StyleSheet, Linking } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import type { BarcodeScanningResult } from 'expo-camera';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getPoints, scanQrCode } from '../api/points';
 import { useAuth } from '../hooks/useAuth';
 import { ScannerOverlay } from '../components/ScannerOverlay';
 import type { ApiError } from '../types/api';
+import type { MainStackParamList } from '../types/navigation';
 import { AxiosError } from 'axios';
 
-export const ScannerScreen: React.FC = () => {
+type Props = NativeStackScreenProps<MainStackParamList, 'Scanner'>;
+
+export const ScannerScreen: React.FC<Props> = ({ navigation }) => {
   const { signOut } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const [points, setPoints] = useState<number | null>(null);
@@ -88,6 +92,8 @@ export const ScannerScreen: React.FC = () => {
         points={points}
         scanning={scanning}
         onLogout={signOut}
+        onHistory={() => navigation.navigate('History')}
+        onProfile={() => navigation.navigate('Profile')}
       />
     </View>
   );
