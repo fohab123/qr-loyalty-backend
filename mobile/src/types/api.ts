@@ -159,3 +159,46 @@ export interface ReviewDecisionRequest {
   comment?: string;
   pointsValue?: number;
 }
+
+export interface CreateProductRequest {
+  name: string;
+  price?: number;
+  pointsValue?: number;
+  status?: 'approved' | 'pending' | 'rejected';
+}
+
+// Analytics types
+
+export interface ProductByStoreItem {
+  storeId: string;
+  storeName: string;
+  productId: string;
+  productName: string;
+  scanCount: number;
+  totalPointsAwarded: number;
+}
+
+export interface TopStoreItem {
+  storeId: string;
+  storeName: string;
+  scanCount: number;
+  totalPointsEarned: number;
+  totalAmount: number;
+}
+
+export interface UserActivityItem {
+  period: string;
+  scanCount: number;
+  uniqueUsers: number;
+  totalPointsEarned: number;
+}
+
+export interface NewProductsTrend {
+  period: string;
+  count: number;
+}
+
+export interface NewProductsResponse {
+  trend: NewProductsTrend[];
+  recentPending: AdminProduct[];
+}

@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../types/navigation';
 import type { AdminProduct } from '../../types/api';
-import { getProducts, updateProduct } from '../../api/admin';
+import { getProducts, updateProduct, createProduct } from '../../api/admin';
 import { Colors, Gradient, Spacing, BorderRadius, FontSize } from '../../constants/theme';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'AdminProducts'>;
@@ -31,6 +31,11 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPrice, setNewPrice] = useState('');
+  const [newPoints, setNewPoints] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -73,6 +78,32 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
       Alert.alert('Error', 'Failed to update product.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      Alert.alert('Error', 'Product name is required.');
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await createProduct({
+        name: trimmed,
+        price: newPrice ? parseFloat(newPrice) : undefined,
+        pointsValue: newPoints ? parseInt(newPoints, 10) : undefined,
+        status: 'approved',
+      });
+      setProducts((prev) => [res.data, ...prev]);
+      setShowCreateForm(false);
+      setNewName('');
+      setNewPrice('');
+      setNewPoints('');
+    } catch {
+      Alert.alert('Error', 'Failed to create product.');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -152,7 +183,9 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.backButton}>{'\u2190'}</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Products</Text>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity onPress={() => setShowCreateForm((v) => !v)}>
+          <Text style={styles.addButton}>{showCreateForm ? '\u2715' : '+'}</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -165,7 +198,58 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={
-            products.length === 0 ? styles.emptyContainer : styles.listContent
+            products.length === 0 && !showCreateForm ? styles.emptyContainer : styles.listContent
+          }
+          ListHeaderComponent={
+            showCreateForm ? (
+              <View style={styles.createCard}>
+                <Text style={styles.createTitle}>New Product</Text>
+                <TextInput
+                  style={styles.createInput}
+                  value={newName}
+                  onChangeText={setNewName}
+                  placeholder="Product Name *"
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardAppearance="dark"
+                />
+                <View style={styles.createRow}>
+                  <TextInput
+                    style={[styles.createInput, styles.createHalfInput]}
+                    value={newPrice}
+                    onChangeText={setNewPrice}
+                    placeholder="Price (RSD)"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="numeric"
+                    keyboardAppearance="dark"
+                  />
+                  <TextInput
+                    style={[styles.createInput, styles.createHalfInput]}
+                    value={newPoints}
+                    onChangeText={setNewPoints}
+                    placeholder="Points Value"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="numeric"
+                    keyboardAppearance="dark"
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.createButtonWrap}
+                  onPress={handleCreate}
+                  disabled={creating}
+                >
+                  <LinearGradient
+                    colors={[...Gradient]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.createButton}
+                  >
+                    <Text style={styles.createButtonText}>
+                      {creating ? 'Creating...' : 'Create Product'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            ) : null
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
@@ -203,8 +287,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.textPrimary,
   },
-  headerSpacer: {
+  addButton: {
+    fontSize: FontSize.xxxl,
+    color: Colors.primaryLight,
+    fontWeight: '600',
     width: 36,
+    textAlign: 'center',
   },
   centered: {
     flex: 1,
@@ -323,5 +411,50 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: FontSize.md,
+  },
+  createCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+  },
+  createTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: Spacing.md,
+  },
+  createInput: {
+    backgroundColor: Colors.elevated,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: FontSize.base,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.md,
+  },
+  createRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  createHalfInput: {
+    flex: 1,
+  },
+  createButtonWrap: {
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+  },
+  createButton: {
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: FontSize.base,
   },
 });

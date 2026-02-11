@@ -16,4 +16,5 @@ export type MainStackParamList = {
   AdminProducts: undefined;
   AdminUsers: undefined;
   AdminTransactions: undefined;
+  AdminAnalytics: undefined;
 };

@@ -101,6 +101,23 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.cardLabel}>{section.label}</Text>
             </TouchableOpacity>
           ))}
+
+          <TouchableOpacity
+            style={styles.analyticsCard}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('AdminAnalytics')}
+          >
+            <LinearGradient
+              colors={[...Gradient]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.analyticsGradient}
+            >
+              <Text style={styles.analyticsIcon}>{'\u{1F4CA}'}</Text>
+              <Text style={styles.analyticsLabel}>Analytics</Text>
+              <Text style={styles.analyticsArrow}>{'\u2192'}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -175,5 +192,30 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
+  },
+  analyticsCard: {
+    width: '100%',
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
+  },
+  analyticsGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.xl,
+  },
+  analyticsIcon: {
+    fontSize: 22,
+    marginRight: Spacing.md,
+  },
+  analyticsLabel: {
+    flex: 1,
+    fontSize: FontSize.lg,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  analyticsArrow: {
+    fontSize: FontSize.xl,
+    color: '#fff',
   },
 });
