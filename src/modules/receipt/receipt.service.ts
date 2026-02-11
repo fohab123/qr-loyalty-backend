@@ -18,6 +18,7 @@ import { User } from '../user/user.entity';
 import { ScanReceiptDto } from './dto/scan-receipt.dto';
 
 export interface ScanResultItem {
+  productId: string;
   name: string;
   matched: boolean;
   pointsAwarded: number;
@@ -96,7 +97,11 @@ export class ReceiptService {
       let totalPointsEarned = 0;
 
       for (const item of parsedReceipt.items) {
-        const product = await this.productService.findOrCreateByName(item.name);
+        const product = await this.productService.findOrCreateByName(
+          item.name,
+          undefined,
+          item.unitPrice,
+        );
 
         const hasCustomPoints =
           product.status === ProductStatus.APPROVED && product.pointsValue > 0;
@@ -115,6 +120,7 @@ export class ReceiptService {
         });
 
         resultItems.push({
+          productId: product.id,
           name: item.name,
           matched: hasCustomPoints,
           pointsAwarded,

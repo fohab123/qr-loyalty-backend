@@ -31,15 +31,23 @@ export class ProductService {
     return this.productRepository.findOne({ where: { name } });
   }
 
-  async findOrCreateByName(name: string, identifier?: string): Promise<Product> {
+  async findOrCreateByName(
+    name: string,
+    identifier?: string,
+    price?: number,
+  ): Promise<Product> {
     let product = await this.productRepository.findOne({ where: { name } });
     if (!product) {
       product = this.productRepository.create({
         name,
         identifier: identifier || undefined,
+        price: price ?? undefined,
         status: ProductStatus.PENDING,
         pointsValue: 0,
       });
+      product = await this.productRepository.save(product);
+    } else if (price != null && product.price == null) {
+      product.price = price;
       product = await this.productRepository.save(product);
     }
     return product;

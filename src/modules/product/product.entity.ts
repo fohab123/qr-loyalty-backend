@@ -17,6 +17,9 @@ export class Product extends BaseEntity {
   @Column({ nullable: true })
   identifier: string;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  price: number | null;
+
   @Column({ type: 'int', default: 0 })
   pointsValue: number;
 

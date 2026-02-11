@@ -33,10 +33,16 @@ export interface ScanResponse {
   pointsEarned: number;
   newBalance: number;
   items: Array<{
+    productId: string;
     name: string;
     matched: boolean;
     pointsAwarded: number;
   }>;
+}
+
+export interface CreateReviewRequest {
+  productId: string;
+  comment?: string;
 }
 
 export interface UserProfile {
@@ -51,11 +57,19 @@ export interface UserProfile {
 
 export interface TransactionItem {
   id: string;
+  productId: string;
   productName: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
   pointsAwarded: number;
+  product?: {
+    id: string;
+    name: string;
+    price: number | null;
+    status: 'approved' | 'pending' | 'rejected';
+    pointsValue: number;
+  };
 }
 
 export interface Transaction {
@@ -80,4 +94,68 @@ export interface ApiError {
   statusCode: number;
   message: string | string[];
   error?: string;
+}
+
+// Admin types
+
+export interface AdminProduct {
+  id: string;
+  name: string;
+  price: number | null;
+  status: 'approved' | 'pending' | 'rejected';
+  pointsValue: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateProductRequest {
+  pointsValue: number;
+}
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'user' | 'admin';
+  pointsBalance: number;
+  createdAt: string;
+}
+
+export interface AdminTransaction {
+  id: string;
+  date: string;
+  totalAmount: number;
+  pointsEarned: number;
+  store: { id: string; name: string };
+  user: { id: string; name: string; email: string };
+  items: TransactionItem[];
+  createdAt: string;
+}
+
+export interface ReviewRequestItem {
+  id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  comment?: string;
+  productId: string;
+  submittedById: string;
+  product: {
+    id: string;
+    name: string;
+    price: number | null;
+    status: 'approved' | 'pending' | 'rejected';
+    pointsValue: number;
+  };
+  submittedBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewDecisionRequest {
+  status: 'approved' | 'rejected';
+  comment?: string;
+  pointsValue?: number;
 }

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsInt, Min, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsNumber, Min, IsEnum } from 'class-validator';
 import { ProductStatus } from '../product.entity';
 
 export class CreateProductDto {
@@ -8,6 +8,11 @@ export class CreateProductDto {
   @IsString()
   @IsOptional()
   identifier?: string;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  price?: number;
 
   @IsInt()
   @Min(0)
