@@ -132,12 +132,17 @@ export interface AdminTransaction {
   createdAt: string;
 }
 
-export interface ReviewRequestItem {
-  id: string;
-  status: 'pending' | 'approved' | 'rejected';
+export interface ReviewRequester {
+  requestId: string;
+  userId: string;
+  name: string;
+  email: string;
   comment?: string;
+  createdAt: string;
+}
+
+export interface GroupedReviewRequest {
   productId: string;
-  submittedById: string;
   product: {
     id: string;
     name: string;
@@ -145,13 +150,10 @@ export interface ReviewRequestItem {
     status: 'approved' | 'pending' | 'rejected';
     pointsValue: number;
   };
-  submittedBy: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  createdAt: string;
-  updatedAt: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestCount: number;
+  requesters: ReviewRequester[];
+  earliestRequestDate: string;
 }
 
 export interface ReviewDecisionRequest {
@@ -201,4 +203,23 @@ export interface NewProductsTrend {
 export interface NewProductsResponse {
   trend: NewProductsTrend[];
   recentPending: AdminProduct[];
+}
+
+export interface ReviewRequestTransaction {
+  transactionId: string;
+  date: string;
+  storeName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  pointsAwarded: number;
+}
+
+export interface GroupedReviewTransactions {
+  productId: string;
+  users: Array<{
+    userId: string;
+    userName: string;
+    transactions: ReviewRequestTransaction[];
+  }>;
 }

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   TextInput,
   StyleSheet,
@@ -11,11 +11,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../types/navigation';
-import type { AdminProduct } from '../../types/api';
-import { getProducts, updateProduct, createProduct } from '../../api/admin';
+import type { AdminProduct, ProductByStoreItem } from '../../types/api';
+import { getProducts, updateProduct, createProduct, getProductsByStore } from '../../api/admin';
+import { createReviewRequest } from '../../api/review';
 import { Colors, Gradient, Spacing, BorderRadius, FontSize } from '../../constants/theme';
+import { formatRSD } from '../../utils/format';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'AdminProducts'>;
 
@@ -25,8 +28,14 @@ const statusColors: Record<string, { bg: string; text: string }> = {
   rejected: { bg: Colors.dangerMuted, text: Colors.danger },
 };
 
+interface ProductSection {
+  title: string;
+  data: AdminProduct[];
+}
+
 export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
   const [products, setProducts] = useState<AdminProduct[]>([]);
+  const [storeData, setStoreData] = useState<ProductByStoreItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -36,11 +45,16 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
   const [newPrice, setNewPrice] = useState('');
   const [newPoints, setNewPoints] = useState('');
   const [creating, setCreating] = useState(false);
+  const [sendingToReview, setSendingToReview] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await getProducts();
-      setProducts(res.data);
+      const [productsRes, storeRes] = await Promise.all([
+        getProducts(),
+        getProductsByStore().catch(() => ({ data: [] as ProductByStoreItem[] })),
+      ]);
+      setProducts(productsRes.data);
+      setStoreData(storeRes.data);
     } catch {
       // silently fail
     } finally {
@@ -48,11 +62,52 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData]),
+  );
+
+  const sections = useMemo((): ProductSection[] => {
+    // Build productId → set of store names from transaction history
+    const productStoresMap = new Map<string, Set<string>>();
+    for (const row of storeData) {
+      let stores = productStoresMap.get(row.productId);
+      if (!stores) {
+        stores = new Set();
+        productStoresMap.set(row.productId, stores);
+      }
+      stores.add(row.storeName);
+    }
+
+    // Group products by store — a product appears in every store it was scanned at
+    const storeGroups = new Map<string, AdminProduct[]>();
+    for (const product of products) {
+      const stores = productStoresMap.get(product.id);
+      if (!stores || stores.size === 0) {
+        const group = storeGroups.get('Other');
+        if (group) { group.push(product); } else { storeGroups.set('Other', [product]); }
+      } else {
+        for (const storeName of stores) {
+          const group = storeGroups.get(storeName);
+          if (group) { group.push(product); } else { storeGroups.set(storeName, [product]); }
+        }
+      }
+    }
+
+    // Convert to sections, sorted alphabetically ("Other" last)
+    return Array.from(storeGroups.entries())
+      .sort(([a], [b]) => {
+        if (a === 'Other') return 1;
+        if (b === 'Other') return -1;
+        return a.localeCompare(b);
+      })
+      .map(([title, data]) => ({ title, data }));
+  }, [products, storeData]);
 
   const handleEdit = (product: AdminProduct) => {
+    if (product.status === 'rejected') return;
+
     if (editingId === product.id) {
       setEditingId(null);
       return;
@@ -110,25 +165,28 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
   const renderItem = ({ item }: { item: AdminProduct }) => {
     const isEditing = editingId === item.id;
     const sc = statusColors[item.status];
+    const isRejected = item.status === 'rejected';
+    const isPending = item.status === 'pending';
 
     return (
       <TouchableOpacity
-        style={styles.card}
+        style={[styles.card, isRejected && styles.cardRejected]}
         onPress={() => handleEdit(item)}
-        activeOpacity={0.7}
+        activeOpacity={isRejected ? 1 : 0.7}
+        disabled={isRejected}
       >
         <View style={styles.cardHeader}>
           <View style={styles.cardLeft}>
             <View style={styles.nameRow}>
-              <Text style={styles.productName}>{item.name}</Text>
+              <Text style={[styles.productName, isRejected && styles.textMuted]}>{item.name}</Text>
               {item.price != null && (
-                <Text style={styles.priceText}>
-                  {Number(item.price).toFixed(2)} RSD
+                <Text style={[styles.priceText, isRejected && styles.textMuted]}>
+                  {formatRSD(item.price)}
                 </Text>
               )}
             </View>
-            <View style={styles.pointsPill}>
-              <Text style={styles.pointsPillText}>
+            <View style={[styles.pointsPill, isRejected && styles.pointsPillRejected]}>
+              <Text style={[styles.pointsPillText, isRejected && styles.textMuted]}>
                 {item.pointsValue} pts
               </Text>
             </View>
@@ -140,7 +198,46 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
-        {isEditing && (
+        {isEditing && isPending && (
+          <View style={styles.editSection}>
+            <TouchableOpacity
+              style={styles.reviewButtonWrap}
+              disabled={sendingToReview}
+              onPress={async () => {
+                setSendingToReview(true);
+                try {
+                  await createReviewRequest({ productId: item.id });
+                  setEditingId(null);
+                  navigation.navigate('AdminReviewRequests', { autoExpandProductId: item.id });
+                } catch (err: any) {
+                  const msg = err?.response?.data?.message;
+                  if (msg?.includes('already have a pending')) {
+                    // Review request already exists, just navigate
+                    setEditingId(null);
+                    navigation.navigate('AdminReviewRequests', { autoExpandProductId: item.id });
+                  } else {
+                    Alert.alert('Error', typeof msg === 'string' ? msg : 'Failed to send to review.');
+                  }
+                } finally {
+                  setSendingToReview(false);
+                }
+              }}
+            >
+              <LinearGradient
+                colors={[Colors.warning, '#F59E0B']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.reviewButton}
+              >
+                <Text style={styles.reviewButtonText}>
+                  {sendingToReview ? 'Sending...' : 'Send to Review'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {isEditing && !isPending && (
           <View style={styles.editSection}>
             <Text style={styles.editLabel}>Points Value</Text>
             <View style={styles.editRow}>
@@ -176,6 +273,13 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
+  const renderSectionHeader = ({ section }: { section: ProductSection }) => (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{section.title}</Text>
+      <Text style={styles.sectionCount}>{section.data.length}</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -193,10 +297,12 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       ) : (
-        <FlatList
-          data={products}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
+          stickySectionHeadersEnabled={false}
           contentContainerStyle={
             products.length === 0 && !showCreateForm ? styles.emptyContainer : styles.listContent
           }
@@ -315,6 +421,25 @@ const styles = StyleSheet.create({
     fontSize: FontSize.lg,
     color: Colors.textMuted,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xs,
+  },
+  sectionTitle: {
+    fontSize: FontSize.md,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionCount: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+  },
   card: {
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.xl,
@@ -322,6 +447,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  cardRejected: {
+    opacity: 0.5,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -344,6 +472,9 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     flexShrink: 1,
   },
+  textMuted: {
+    color: Colors.textMuted,
+  },
   priceText: {
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
@@ -355,6 +486,9 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     alignSelf: 'flex-start',
     marginTop: Spacing.xs,
+  },
+  pointsPillRejected: {
+    backgroundColor: 'rgba(99,102,241,0.08)',
   },
   pointsPillText: {
     fontSize: FontSize.md,
@@ -411,6 +545,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: FontSize.md,
+  },
+  reviewButtonWrap: {
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+  },
+  reviewButton: {
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: FontSize.base,
   },
   createCard: {
     backgroundColor: Colors.surface,

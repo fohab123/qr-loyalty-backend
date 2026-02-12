@@ -16,6 +16,7 @@ import type { TransactionItem } from '../types/api';
 import { createReviewRequest } from '../api/review';
 import { updateProduct } from '../api/admin';
 import { Colors, Gradient } from '../constants/theme';
+import { formatRSD } from '../utils/format';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'TransactionDetail'>;
 
@@ -44,8 +45,13 @@ export const TransactionDetailScreen: React.FC<Props> = ({ navigation, route }) 
     try {
       await createReviewRequest({ productId });
       setReviewedIndices((prev) => new Set(prev).add(index));
-    } catch {
-      Alert.alert('Error', 'Failed to submit review request. Please try again.');
+    } catch (err: any) {
+      if (err?.response?.status === 409) {
+        Alert.alert('Already Requested', 'You already have a pending review request for this product.');
+        setReviewedIndices((prev) => new Set(prev).add(index));
+      } else {
+        Alert.alert('Error', 'Failed to submit review request. Please try again.');
+      }
     } finally {
       setLoadingIndices((prev) => {
         const next = new Set(prev);
@@ -82,8 +88,8 @@ export const TransactionDetailScreen: React.FC<Props> = ({ navigation, route }) 
     }
   };
 
-  const handleGoToReview = (productId: string) => {
-    navigation.navigate('AdminReviewRequests', { autoExpandProductId: productId });
+  const handleGoToReview = async (index: number, productId: string) => {
+    await handleRequestReview(index, productId);
   };
 
   return (
@@ -102,7 +108,7 @@ export const TransactionDetailScreen: React.FC<Props> = ({ navigation, route }) 
         end={{ x: 1, y: 1 }}
         style={styles.summaryCard}
       >
-        <Text style={styles.storeName}>{transaction.store.name}</Text>
+        <Text style={styles.storeName}>{transaction.store?.name ?? 'Unknown Store'}</Text>
         <Text style={styles.summaryDate}>{formatDate(transaction.date)}</Text>
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
@@ -112,7 +118,7 @@ export const TransactionDetailScreen: React.FC<Props> = ({ navigation, route }) 
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Total</Text>
             <Text style={styles.summaryAmount}>
-              {Number(transaction.totalAmount).toFixed(2)} RSD
+              {formatRSD(transaction.totalAmount)}
             </Text>
           </View>
         </View>
@@ -142,7 +148,7 @@ export const TransactionDetailScreen: React.FC<Props> = ({ navigation, route }) 
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName} numberOfLines={1}>{item.productName}</Text>
                 <Text style={styles.itemDetail}>
-                  {item.quantity} x {Number(item.unitPrice).toFixed(2)} RSD
+                  {item.quantity} x {formatRSD(item.unitPrice)}
                 </Text>
                 <Text style={styles.itemPoints}>
                   +{item.pointsAwarded} pts{!matched ? ' (default)' : ''}
@@ -160,10 +166,13 @@ export const TransactionDetailScreen: React.FC<Props> = ({ navigation, route }) 
               )}
               {isAdmin && isPending && (
                 <TouchableOpacity
-                  style={styles.goReviewButton}
-                  onPress={() => handleGoToReview(item.productId)}
+                  style={[styles.goReviewButton, (reviewedIndices.has(index) || loadingIndices.has(index)) && styles.reviewButtonDisabled]}
+                  onPress={() => handleGoToReview(index, item.productId)}
+                  disabled={reviewedIndices.has(index) || loadingIndices.has(index)}
                 >
-                  <Text style={styles.goReviewButtonText}>Review</Text>
+                  <Text style={[styles.goReviewButtonText, reviewedIndices.has(index) && styles.reviewButtonTextDisabled]}>
+                    {loadingIndices.has(index) ? 'Sending...' : reviewedIndices.has(index) ? 'Review Requested' : 'Request Review'}
+                  </Text>
                 </TouchableOpacity>
               )}
               {!isAdmin && !matched && (

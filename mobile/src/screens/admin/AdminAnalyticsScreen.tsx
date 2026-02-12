@@ -33,16 +33,16 @@ export const AdminAnalyticsScreen: React.FC<Props> = ({ navigation }) => {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [pbs, ts, ua, np] = await Promise.all([
-        adminApi.getProductsByStore(),
+      const [pbs, ts, ua, np] = await Promise.allSettled([
+        adminApi.getTopProductsByStore(),
         adminApi.getTopStores(),
         adminApi.getUserActivity(activityPeriod),
         adminApi.getNewProducts(productsPeriod),
       ]);
-      setProductsByStore(pbs.data);
-      setTopStores(ts.data);
-      setUserActivity(ua.data);
-      setNewProducts(np.data);
+      if (pbs.status === 'fulfilled') setProductsByStore(pbs.value.data);
+      if (ts.status === 'fulfilled') setTopStores(ts.value.data);
+      if (ua.status === 'fulfilled') setUserActivity(ua.value.data);
+      if (np.status === 'fulfilled') setNewProducts(np.value.data);
     } catch {
       // silently fail
     } finally {

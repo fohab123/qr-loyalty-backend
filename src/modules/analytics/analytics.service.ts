@@ -16,7 +16,7 @@ export class AnalyticsService {
     private readonly productRepo: Repository<Product>,
   ) {}
 
-  async getProductsByStore() {
+  async getProductsByStore(topOnly = false) {
     const rows = await this.transactionItemRepo
       .createQueryBuilder('ti')
       .innerJoin('ti.transaction', 'tx')
@@ -27,7 +27,7 @@ export class AnalyticsService {
       .addSelect('p.id', 'productId')
       .addSelect('p.name', 'productName')
       .addSelect('COUNT(ti.id)', 'scanCount')
-      .addSelect('SUM(ti.pointsAwarded)', 'totalPointsAwarded')
+      .addSelect('COALESCE(SUM(ti.pointsAwarded), 0)', 'totalPointsAwarded')
       .groupBy('s.id')
       .addGroupBy('s.name')
       .addGroupBy('p.id')
@@ -36,21 +36,25 @@ export class AnalyticsService {
       .addOrderBy('"scanCount"', 'DESC')
       .getRawMany();
 
-    const seen = new Set<string>();
-    return rows
-      .map((r) => ({
-        storeId: r.storeId,
-        storeName: r.storeName,
-        productId: r.productId,
-        productName: r.productName,
-        scanCount: Number(r.scanCount),
-        totalPointsAwarded: Number(r.totalPointsAwarded),
-      }))
-      .filter((r) => {
+    const mapped = rows.map((r) => ({
+      storeId: r.storeId,
+      storeName: r.storeName,
+      productId: r.productId,
+      productName: r.productName,
+      scanCount: Number(r.scanCount),
+      totalPointsAwarded: Number(r.totalPointsAwarded),
+    }));
+
+    if (topOnly) {
+      const seen = new Set<string>();
+      return mapped.filter((r) => {
         if (seen.has(r.storeId)) return false;
         seen.add(r.storeId);
         return true;
       });
+    }
+
+    return mapped;
   }
 
   async getTopStores() {

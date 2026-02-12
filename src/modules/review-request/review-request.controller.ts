@@ -33,15 +33,21 @@ export class ReviewRequestController {
   @Roles(UserRole.ADMIN)
   @Get('review-requests')
   findAll(@Query('status') status?: ReviewRequestStatus) {
-    return this.reviewRequestService.findAll(status);
+    return this.reviewRequestService.findAllGrouped(status);
   }
 
   @Roles(UserRole.ADMIN)
-  @Patch('review-requests/:id')
+  @Get('review-requests/product/:productId/transactions')
+  getTransactions(@Param('productId', ParseUUIDPipe) productId: string) {
+    return this.reviewRequestService.getTransactionsForProduct(productId);
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Patch('review-requests/product/:productId')
   decide(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('productId', ParseUUIDPipe) productId: string,
     @Body() dto: ReviewDecisionDto,
   ) {
-    return this.reviewRequestService.decide(id, dto);
+    return this.reviewRequestService.decideByProduct(productId, dto);
   }
 }

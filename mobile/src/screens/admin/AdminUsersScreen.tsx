@@ -10,9 +10,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../types/navigation';
-import type { AdminUser, AdminTransaction } from '../../types/api';
+import type { AdminUser, AdminTransaction, Transaction } from '../../types/api';
 import { getUsers, getTransactions } from '../../api/admin';
 import { Colors, Spacing, BorderRadius, FontSize } from '../../constants/theme';
+import { formatRSD } from '../../utils/format';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'AdminUsers'>;
 
@@ -52,8 +53,8 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
     const isExpanded = expandedId === item.id;
     const userTransactions = isExpanded
       ? allTransactions
-          .filter((tx) => tx.user.id === item.id)
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .filter((tx) => tx.user?.id === item.id)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       : [];
 
     return (
@@ -65,7 +66,7 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.cardHeader}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {item.name
+              {(item.name ?? '')
                 .split(' ')
                 .map((n) => n[0])
                 .join('')
@@ -125,18 +126,26 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.noTxText}>No transactions yet</Text>
             ) : (
               userTransactions.map((tx) => (
-                <View key={tx.id} style={styles.txRow}>
+                <TouchableOpacity
+                  key={tx.id}
+                  style={styles.txRow}
+                  onPress={() => {
+                    const { user: _user, ...rest } = tx;
+                    navigation.navigate('TransactionDetail', { transaction: rest as Transaction, isAdmin: true });
+                  }}
+                  activeOpacity={0.7}
+                >
                   <View style={styles.txInfo}>
-                    <Text style={styles.txStore}>{tx.store.name}</Text>
+                    <Text style={styles.txStore}>{tx.store?.name ?? 'Unknown Store'}</Text>
                     <Text style={styles.txDate}>{formatDate(tx.date)}</Text>
                   </View>
                   <View style={styles.txRight}>
                     <Text style={styles.txPoints}>+{tx.pointsEarned} pts</Text>
                     <Text style={styles.txAmount}>
-                      {Number(tx.totalAmount).toFixed(2)} RSD
+                      {formatRSD(tx.totalAmount)}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))
             )}
           </View>

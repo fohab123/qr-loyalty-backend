@@ -5,10 +5,11 @@ import { getPoints } from '../api/points';
 import { setUnauthorizedHandler } from '../api/client';
 import type { LoginRequest, RegisterRequest } from '../types/api';
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
+  role: 'user' | 'admin';
 }
 
 interface AuthState {

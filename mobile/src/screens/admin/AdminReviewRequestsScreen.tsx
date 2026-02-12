@@ -13,9 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../types/navigation';
-import type { ReviewRequestItem } from '../../types/api';
-import { getReviewRequests, decideReviewRequest } from '../../api/admin';
+import type { GroupedReviewRequest, GroupedReviewTransactions } from '../../types/api';
+import { getReviewRequests, decideReviewRequest, getReviewRequestTransactions } from '../../api/admin';
 import { Colors, Gradient, Spacing, BorderRadius, FontSize } from '../../constants/theme';
+import { formatRSD } from '../../utils/format';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'AdminReviewRequests'>;
 
@@ -30,13 +31,43 @@ const statusColors: Record<string, { bg: string; text: string }> = {
 export const AdminReviewRequestsScreen: React.FC<Props> = ({ navigation, route }) => {
   const autoExpandProductId = route.params?.autoExpandProductId;
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
-  const [items, setItems] = useState<ReviewRequestItem[]>([]);
+  const [items, setItems] = useState<GroupedReviewRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pointsInputs, setPointsInputs] = useState<Record<string, string>>({});
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [pointsMode, setPointsMode] = useState<Record<string, 'default' | 'custom'>>({});
   const [deciding, setDeciding] = useState<string | null>(null);
+  const [txData, setTxData] = useState<Record<string, GroupedReviewTransactions>>({});
+  const [txLoading, setTxLoading] = useState<Record<string, boolean>>({});
+
+  const fetchTransactions = async (productId: string) => {
+    if (txData[productId]) return;
+    setTxLoading((prev) => ({ ...prev, [productId]: true }));
+    try {
+      const res = await getReviewRequestTransactions(productId);
+      setTxData((prev) => ({ ...prev, [productId]: res.data }));
+    } catch {
+      // silently fail
+    } finally {
+      setTxLoading((prev) => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const handleExpand = (productId: string) => {
+    const newId = expandedId === productId ? null : productId;
+    setExpandedId(newId);
+    if (newId) {
+      fetchTransactions(newId);
+      // Pre-populate default points so Approve works without touching the input
+      if (pointsInputs[newId] === undefined) {
+        const item = items.find((i) => i.productId === newId);
+        if (item) {
+          setPointsInputs((prev) => ({ ...prev, [newId]: String(getDefaultPoints(item)) }));
+        }
+      }
+    }
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -56,26 +87,38 @@ export const AdminReviewRequestsScreen: React.FC<Props> = ({ navigation, route }
 
   useEffect(() => {
     if (autoExpandProductId && items.length > 0 && !expandedId) {
-      const match = items.find((i) => i.productId === autoExpandProductId);
-      if (match) setExpandedId(match.id);
+      const idx = items.findIndex((i) => i.productId === autoExpandProductId);
+      if (idx >= 0) {
+        // Move to top so the admin sees it immediately
+        if (idx > 0) {
+          setItems((prev) => {
+            const item = prev[idx];
+            return [item, ...prev.slice(0, idx), ...prev.slice(idx + 1)];
+          });
+        }
+        handleExpand(autoExpandProductId);
+      }
     }
-  }, [autoExpandProductId, items, expandedId]);
+  }, [autoExpandProductId, items.length]);
 
-  const handleDecide = async (id: string, status: 'approved' | 'rejected') => {
-    const pointsStr = pointsInputs[id];
-    const pointsValue = pointsStr ? parseInt(pointsStr, 10) : undefined;
+  const handleDecide = async (productId: string, status: 'approved' | 'rejected') => {
+    const pointsStr = pointsInputs[productId];
+    const item = items.find((i) => i.productId === productId);
+    const pointsValue = pointsStr
+      ? parseInt(pointsStr, 10)
+      : item ? getDefaultPoints(item) : undefined;
 
     if (status === 'approved' && (!pointsValue || pointsValue <= 0)) {
       Alert.alert('Error', 'Please enter a valid points value before approving.');
       return;
     }
 
-    const comment = commentInputs[id]?.trim() || undefined;
+    const comment = commentInputs[productId]?.trim() || undefined;
 
-    setDeciding(id);
+    setDeciding(productId);
     try {
-      await decideReviewRequest(id, { status, pointsValue, comment });
-      setItems((prev) => prev.filter((item) => item.id !== id));
+      await decideReviewRequest(productId, { status, pointsValue, comment });
+      setItems((prev) => prev.filter((item) => item.productId !== productId));
       setExpandedId(null);
     } catch {
       Alert.alert('Error', 'Failed to process decision.');
@@ -84,44 +127,47 @@ export const AdminReviewRequestsScreen: React.FC<Props> = ({ navigation, route }
     }
   };
 
-  const getDefaultPoints = (item: ReviewRequestItem) => {
-    if (item.product.price != null && item.product.price > 0) {
+  const getDefaultPoints = (item: GroupedReviewRequest) => {
+    if (item.product?.price != null && item.product.price > 0) {
       return Math.max(1, Math.floor(Number(item.product.price) / 10));
     }
-    return item.product.pointsValue > 0 ? item.product.pointsValue : 1;
+    return (item.product?.pointsValue ?? 0) > 0 ? item.product!.pointsValue : 1;
   };
 
-  const handlePointsMode = (id: string, mode: 'default' | 'custom', item: ReviewRequestItem) => {
-    setPointsMode((prev) => ({ ...prev, [id]: mode }));
+  const handlePointsMode = (productId: string, mode: 'default' | 'custom', item: GroupedReviewRequest) => {
+    setPointsMode((prev) => ({ ...prev, [productId]: mode }));
     if (mode === 'default') {
-      setPointsInputs((prev) => ({ ...prev, [id]: String(getDefaultPoints(item)) }));
+      setPointsInputs((prev) => ({ ...prev, [productId]: String(getDefaultPoints(item)) }));
     } else {
-      setPointsInputs((prev) => ({ ...prev, [id]: '' }));
+      setPointsInputs((prev) => ({ ...prev, [productId]: '' }));
     }
   };
 
-  const renderItem = ({ item }: { item: ReviewRequestItem }) => {
-    const isExpanded = expandedId === item.id;
-    const isDeciding = deciding === item.id;
+  const renderItem = ({ item }: { item: GroupedReviewRequest }) => {
+    const isExpanded = expandedId === item.productId;
+    const isDeciding = deciding === item.productId;
     const sc = statusColors[item.status];
+    const txInfo = txData[item.productId];
 
     return (
       <TouchableOpacity
         style={styles.card}
-        onPress={() => setExpandedId(isExpanded ? null : item.id)}
+        onPress={() => handleExpand(item.productId)}
         activeOpacity={0.7}
       >
         <View style={styles.cardHeader}>
           <View style={styles.cardLeft}>
-            <View style={styles.nameRow}>
-              <Text style={styles.productName}>{item.product.name}</Text>
-              {item.product.price != null && (
-                <Text style={styles.priceText}>
-                  {Number(item.product.price).toFixed(2)} RSD
-                </Text>
-              )}
-            </View>
-            <Text style={styles.userName}>{item.submittedBy.name}</Text>
+            <Text style={styles.productName}>{item.product?.name ?? 'Unknown Product'}</Text>
+            {item.product?.price != null && (
+              <Text style={styles.priceText}>
+                {formatRSD(item.product.price)}
+              </Text>
+            )}
+            {item.requestCount > 1 && (
+              <View style={styles.requestCountBadge}>
+                <Text style={styles.requestCountText}>{item.requestCount} requests</Text>
+              </View>
+            )}
           </View>
           <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
             <Text style={[styles.statusText, { color: sc.text }]}>
@@ -130,9 +176,54 @@ export const AdminReviewRequestsScreen: React.FC<Props> = ({ navigation, route }
           </View>
         </View>
 
-        {item.comment ? (
-          <Text style={styles.comment}>"{item.comment}"</Text>
-        ) : null}
+        {/* Requesters list */}
+        <View style={styles.requestersList}>
+          {(item.requesters ?? []).map((r) => (
+            <View key={r.requestId} style={styles.requesterRow}>
+              <Text style={styles.requesterName}>{r.name}</Text>
+              {r.comment ? (
+                <Text style={styles.requesterComment}>"{r.comment}"</Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
+
+        {isExpanded && (
+          <View style={styles.txSection}>
+            <Text style={styles.txSectionTitle}>Purchase History</Text>
+            {txLoading[item.productId] ? (
+              <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: Spacing.sm }} />
+            ) : txInfo?.users?.length ? (
+              txInfo.users.map((userGroup) => (
+                <View key={userGroup.userId} style={styles.userTxGroup}>
+                  {txInfo.users.length > 1 && (
+                    <Text style={styles.userTxHeader}>{userGroup.userName}</Text>
+                  )}
+                  {userGroup.transactions.length > 0 ? (
+                    userGroup.transactions.map((tx, i) => (
+                      <View key={tx.transactionId + i} style={styles.txRow}>
+                        <View style={styles.txRowLeft}>
+                          <Text style={styles.txStore}>{tx.storeName}</Text>
+                          <Text style={styles.txDate}>
+                            {new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </Text>
+                        </View>
+                        <View style={styles.txRowRight}>
+                          <Text style={styles.txDetail}>{tx.quantity} x {formatRSD(tx.unitPrice)}</Text>
+                          <Text style={styles.txPoints}>+{tx.pointsAwarded} pts</Text>
+                        </View>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.txEmpty}>No purchases</Text>
+                  )}
+                </View>
+              ))
+            ) : (
+              <Text style={styles.txEmpty}>No purchase history found</Text>
+            )}
+          </View>
+        )}
 
         {isExpanded && activeTab === 'pending' && (
           <View style={styles.actionSection}>
@@ -141,14 +232,14 @@ export const AdminReviewRequestsScreen: React.FC<Props> = ({ navigation, route }
               <TouchableOpacity
                 style={[
                   styles.modeChip,
-                  (pointsMode[item.id] || 'default') === 'default' && styles.modeChipActive,
+                  (pointsMode[item.productId] || 'default') === 'default' && styles.modeChipActive,
                 ]}
-                onPress={() => handlePointsMode(item.id, 'default', item)}
+                onPress={() => handlePointsMode(item.productId, 'default', item)}
               >
                 <Text
                   style={[
                     styles.modeChipText,
-                    (pointsMode[item.id] || 'default') === 'default' && styles.modeChipTextActive,
+                    (pointsMode[item.productId] || 'default') === 'default' && styles.modeChipTextActive,
                   ]}
                 >
                   Default ({getDefaultPoints(item)})
@@ -157,14 +248,14 @@ export const AdminReviewRequestsScreen: React.FC<Props> = ({ navigation, route }
               <TouchableOpacity
                 style={[
                   styles.modeChip,
-                  pointsMode[item.id] === 'custom' && styles.modeChipActive,
+                  pointsMode[item.productId] === 'custom' && styles.modeChipActive,
                 ]}
-                onPress={() => handlePointsMode(item.id, 'custom', item)}
+                onPress={() => handlePointsMode(item.productId, 'custom', item)}
               >
                 <Text
                   style={[
                     styles.modeChipText,
-                    pointsMode[item.id] === 'custom' && styles.modeChipTextActive,
+                    pointsMode[item.productId] === 'custom' && styles.modeChipTextActive,
                   ]}
                 >
                   Custom
@@ -177,10 +268,10 @@ export const AdminReviewRequestsScreen: React.FC<Props> = ({ navigation, route }
               placeholderTextColor={Colors.textMuted}
               keyboardType="numeric"
               keyboardAppearance="dark"
-              value={pointsInputs[item.id] ?? String(getDefaultPoints(item))}
+              value={pointsInputs[item.productId] ?? String(getDefaultPoints(item))}
               onChangeText={(val) => {
-                setPointsInputs((prev) => ({ ...prev, [item.id]: val }));
-                setPointsMode((prev) => ({ ...prev, [item.id]: 'custom' }));
+                setPointsInputs((prev) => ({ ...prev, [item.productId]: val }));
+                setPointsMode((prev) => ({ ...prev, [item.productId]: 'custom' }));
               }}
             />
             <Text style={styles.actionLabel}>Rejection Comment (optional)</Text>
@@ -189,15 +280,15 @@ export const AdminReviewRequestsScreen: React.FC<Props> = ({ navigation, route }
               placeholder="Reason for rejection..."
               placeholderTextColor={Colors.textMuted}
               keyboardAppearance="dark"
-              value={commentInputs[item.id] || ''}
+              value={commentInputs[item.productId] || ''}
               onChangeText={(val) =>
-                setCommentInputs((prev) => ({ ...prev, [item.id]: val }))
+                setCommentInputs((prev) => ({ ...prev, [item.productId]: val }))
               }
             />
             <View style={styles.actionRow}>
               <TouchableOpacity
                 style={styles.rejectButton}
-                onPress={() => handleDecide(item.id, 'rejected')}
+                onPress={() => handleDecide(item.productId, 'rejected')}
                 disabled={isDeciding}
               >
                 <Text style={styles.rejectButtonText}>
@@ -206,7 +297,7 @@ export const AdminReviewRequestsScreen: React.FC<Props> = ({ navigation, route }
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.approveButtonWrap}
-                onPress={() => handleDecide(item.id, 'approved')}
+                onPress={() => handleDecide(item.productId, 'approved')}
                 disabled={isDeciding}
               >
                 <LinearGradient
@@ -224,8 +315,14 @@ export const AdminReviewRequestsScreen: React.FC<Props> = ({ navigation, route }
           </View>
         )}
 
-        {isExpanded && activeTab !== 'pending' && item.comment ? (
-          <Text style={styles.adminComment}>Comment: {item.comment}</Text>
+        {isExpanded && activeTab !== 'pending' && item.requesters?.some(r => r.comment) ? (
+          <View style={styles.adminCommentSection}>
+            {item.requesters.filter(r => r.comment).map(r => (
+              <Text key={r.requestId} style={styles.adminComment}>
+                {(item.requesters?.length ?? 0) > 1 ? `${r.name}: ` : ''}{r.comment}
+              </Text>
+            ))}
+          </View>
         ) : null}
       </TouchableOpacity>
     );
@@ -264,7 +361,7 @@ export const AdminReviewRequestsScreen: React.FC<Props> = ({ navigation, route }
       ) : (
         <FlatList
           data={items}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.productId}
           renderItem={renderItem}
           contentContainerStyle={
             items.length === 0 ? styles.emptyContainer : styles.listContent
@@ -372,25 +469,29 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: Spacing.md,
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: Spacing.sm,
-    marginBottom: 2,
-  },
   productName: {
     fontSize: FontSize.base,
     fontWeight: '600',
     color: Colors.textPrimary,
-    flexShrink: 1,
+    marginBottom: 2,
   },
   priceText: {
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
+    marginBottom: 2,
   },
-  userName: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
+  requestCountBadge: {
+    backgroundColor: Colors.primaryLight + '20',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  requestCountText: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.primaryLight,
   },
   statusBadge: {
     paddingHorizontal: Spacing.sm,
@@ -402,11 +503,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'capitalize',
   },
-  comment: {
+  requestersList: {
+    marginTop: Spacing.sm,
+  },
+  requesterRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.sm,
+    marginBottom: 2,
+  },
+  requesterName: {
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  requesterComment: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
     fontStyle: 'italic',
-    marginTop: Spacing.sm,
+    flexShrink: 1,
   },
   actionSection: {
     marginTop: Spacing.md,
@@ -495,12 +610,77 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: FontSize.md,
   },
-  adminComment: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
+  adminCommentSection: {
     marginTop: Spacing.sm,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
+  },
+  adminComment: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    marginBottom: 2,
+  },
+  txSection: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  txSectionTitle: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  userTxGroup: {
+    marginBottom: Spacing.sm,
+  },
+  userTxHeader: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.primaryLight,
+    marginBottom: Spacing.xs,
+  },
+  txRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Colors.elevated,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  txRowLeft: {
+    flex: 1,
+    marginRight: Spacing.sm,
+  },
+  txRowRight: {
+    alignItems: 'flex-end',
+  },
+  txStore: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  txDate: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  txDetail: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+  },
+  txPoints: {
+    fontSize: FontSize.xs,
+    color: Colors.primaryLight,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  txEmpty: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    fontStyle: 'italic',
   },
 });

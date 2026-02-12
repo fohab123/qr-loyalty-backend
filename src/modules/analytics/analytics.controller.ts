@@ -9,8 +9,8 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('products-by-store')
-  getProductsByStore() {
-    return this.analyticsService.getProductsByStore();
+  getProductsByStore(@Query('top') top?: string) {
+    return this.analyticsService.getProductsByStore(top === 'true');
   }
 
   @Get('top-stores')

@@ -104,11 +104,11 @@ export class ReceiptFetcherService {
     }
 
     return data.items.map(
-      (item: { name: string; quantity: number; unitPrice: number; total: number }) => ({
+      (item: { name: string; quantity: number | string; unitPrice: number | string; total: number | string }) => ({
         name: item.name,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        totalPrice: item.total,
+        quantity: typeof item.quantity === 'string' ? parseInt(item.quantity, 10) : item.quantity,
+        unitPrice: this.parseNumber(String(item.unitPrice)),
+        totalPrice: this.parseNumber(String(item.total)),
       }),
     );
   }
@@ -173,8 +173,10 @@ export class ReceiptFetcherService {
 
   private parseNumber(value: string): number {
     if (!value) return 0;
-    // Handle Serbian number format (comma as decimal separator)
-    const cleaned = value.replace(/\s/g, '').replace(',', '.');
+    // Handle Serbian/European number format:
+    // dots are thousands separators, comma is decimal separator
+    // e.g. "3.240,50" → 3240.50, "3.240" → 3240, "94,99" → 94.99
+    const cleaned = value.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
     const num = parseFloat(cleaned);
     return isNaN(num) ? 0 : num;
   }

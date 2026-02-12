@@ -26,8 +26,13 @@ export const ScanResultScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       await createReviewRequest({ productId });
       setReviewedIndices((prev) => new Set(prev).add(index));
-    } catch {
-      Alert.alert('Error', 'Failed to submit review request. Please try again.');
+    } catch (err: any) {
+      if (err?.response?.status === 409) {
+        Alert.alert('Already Requested', 'You already have a pending review request for this product.');
+        setReviewedIndices((prev) => new Set(prev).add(index));
+      } else {
+        Alert.alert('Error', 'Failed to submit review request. Please try again.');
+      }
     } finally {
       setLoadingIndices((prev) => {
         const next = new Set(prev);

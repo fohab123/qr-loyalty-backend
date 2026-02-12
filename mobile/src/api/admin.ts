@@ -1,7 +1,8 @@
 import client from './client';
 import type {
-  ReviewRequestItem,
+  GroupedReviewRequest,
   ReviewDecisionRequest,
+  GroupedReviewTransactions,
   AdminProduct,
   UpdateProductRequest,
   CreateProductRequest,
@@ -15,12 +16,15 @@ import type {
 
 // Review Requests
 export const getReviewRequests = (status?: string) =>
-  client.get<ReviewRequestItem[]>('/review-requests', {
+  client.get<GroupedReviewRequest[]>('/review-requests', {
     params: status ? { status } : undefined,
   });
 
-export const decideReviewRequest = (id: string, data: ReviewDecisionRequest) =>
-  client.patch<ReviewRequestItem>(`/review-requests/${id}`, data);
+export const decideReviewRequest = (productId: string, data: ReviewDecisionRequest) =>
+  client.patch(`/review-requests/product/${productId}`, data);
+
+export const getReviewRequestTransactions = (productId: string) =>
+  client.get<GroupedReviewTransactions>(`/review-requests/product/${productId}/transactions`);
 
 // Products
 export const getProducts = () =>
@@ -43,6 +47,11 @@ export const getTransactions = () =>
 // Analytics
 export const getProductsByStore = () =>
   client.get<ProductByStoreItem[]>('/analytics/products-by-store');
+
+export const getTopProductsByStore = () =>
+  client.get<ProductByStoreItem[]>('/analytics/products-by-store', {
+    params: { top: 'true' },
+  });
 
 export const getTopStores = () =>
   client.get<TopStoreItem[]>('/analytics/top-stores');

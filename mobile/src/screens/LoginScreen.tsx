@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  View,
   Text,
   TextInput,
   TouchableOpacity,
@@ -9,11 +8,13 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../hooks/useAuth';
 import type { AuthStackParamList } from '../types/navigation';
 import type { ApiError } from '../types/api';
 import { AxiosError } from 'axios';
+import { Colors, Gradient } from '../constants/theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
@@ -61,34 +62,44 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={Colors.textMuted}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
           textContentType="emailAddress"
           autoComplete="email"
+          keyboardAppearance="dark"
         />
 
         <TextInput
           style={styles.input}
           placeholder="Password"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={Colors.textMuted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
           textContentType="password"
           autoComplete="password"
+          keyboardAppearance="dark"
         />
 
         <TouchableOpacity
           style={[styles.button, submitting && styles.buttonDisabled]}
           onPress={handleLogin}
           disabled={submitting}
+          activeOpacity={0.8}
         >
-          <Text style={styles.buttonText}>
-            {submitting ? 'Signing in...' : 'Sign In'}
-          </Text>
+          <LinearGradient
+            colors={[...Gradient]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.buttonGradient}
+          >
+            <Text style={styles.buttonText}>
+              {submitting ? 'Signing in...' : 'Sign In'}
+            </Text>
+          </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
@@ -102,7 +113,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#fff' },
+  flex: { flex: 1, backgroundColor: Colors.background },
   container: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -111,19 +122,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#4F46E5',
+    color: Colors.primaryLight,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
   },
   error: {
-    color: '#EF4444',
-    backgroundColor: '#FEF2F2',
+    color: Colors.danger,
+    backgroundColor: Colors.dangerMuted,
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
@@ -132,23 +143,26 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: Colors.inputBorder,
+    backgroundColor: Colors.inputBackground,
     borderRadius: 8,
     padding: 14,
     fontSize: 16,
     marginBottom: 12,
-    color: '#111827',
+    color: Colors.textPrimary,
   },
   button: {
-    backgroundColor: '#4F46E5',
     borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
+    overflow: 'hidden',
     marginTop: 8,
     marginBottom: 24,
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  buttonGradient: {
+    padding: 16,
+    alignItems: 'center',
   },
   buttonText: {
     color: '#fff',
@@ -157,11 +171,11 @@ const styles = StyleSheet.create({
   },
   link: {
     textAlign: 'center',
-    color: '#6B7280',
+    color: Colors.textSecondary,
     fontSize: 14,
   },
   linkBold: {
-    color: '#4F46E5',
+    color: Colors.primaryLight,
     fontWeight: '600',
   },
 });

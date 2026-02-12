@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Gradient } from '../constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CUTOUT_SIZE = 250;
@@ -17,6 +19,7 @@ interface ScannerOverlayProps {
   onLogout: () => void;
   onHistory: () => void;
   onProfile: () => void;
+  onAdmin?: () => void;
 }
 
 export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
@@ -25,6 +28,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
   onLogout,
   onHistory,
   onProfile,
+  onAdmin,
 }) => {
   const sideOverlayWidth = (SCREEN_WIDTH - CUTOUT_SIZE) / 2;
 
@@ -35,11 +39,16 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
         <View style={styles.topBar}>
           <Text style={styles.appName}>QR Loyalty</Text>
           {points !== null && (
-            <View style={styles.pointsPill}>
+            <LinearGradient
+              colors={[...Gradient]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.pointsPill}
+            >
               <Text style={styles.pointsText}>
                 {points.toLocaleString()} pts
               </Text>
-            </View>
+            </LinearGradient>
           )}
         </View>
       </View>
@@ -78,6 +87,12 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
             <Text style={styles.bottomButtonIcon}>&#128100;</Text>
             <Text style={styles.bottomButtonLabel}>Profile</Text>
           </TouchableOpacity>
+          {onAdmin && (
+            <TouchableOpacity style={styles.bottomButton} onPress={onAdmin}>
+              <Text style={styles.bottomButtonIcon}>{'\u2699'}</Text>
+              <Text style={styles.bottomButtonLabel}>Admin</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.bottomButton} onPress={onLogout}>
             <Text style={styles.bottomButtonIcon}>&#10140;</Text>
             <Text style={styles.bottomButtonLabel}>Logout</Text>

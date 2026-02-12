@@ -12,12 +12,14 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getProfile, updateProfile, getTransactions } from '../api/user';
 import { useAuth } from '../hooks/useAuth';
 import type { UserProfile, ApiError } from '../types/api';
 import type { MainStackParamList } from '../types/navigation';
 import { AxiosError } from 'axios';
+import { Colors, Gradient } from '../constants/theme';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'Profile'>;
 
@@ -35,7 +37,6 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [transactionCount, setTransactionCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Edit state
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [saving, setSaving] = useState(false);
@@ -60,7 +61,6 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     fetchData().finally(() => setLoading(false));
   }, [fetchData]);
 
-  // Track dirty state
   useEffect(() => {
     if (!profile) return;
     setDirty(editName !== profile.name || editEmail !== profile.email);
@@ -107,7 +107,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#4F46E5" />
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -130,7 +130,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     );
   }
 
-  const initials = profile.name
+  const initials = (profile.name ?? '')
     .split(' ')
     .map((n) => n[0])
     .join('')
@@ -155,16 +155,19 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Avatar + Name */}
           <View style={styles.avatarSection}>
-            <View style={styles.avatar}>
+            <LinearGradient
+              colors={[...Gradient]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatar}
+            >
               <Text style={styles.avatarText}>{initials}</Text>
-            </View>
+            </LinearGradient>
             <Text style={styles.profileName}>{profile.name}</Text>
             <Text style={styles.profileEmail}>{profile.email}</Text>
           </View>
 
-          {/* Stats Row */}
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>
@@ -178,7 +181,6 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Edit Section */}
           <View style={styles.editSection}>
             <Text style={styles.sectionTitle}>Edit Profile</Text>
 
@@ -188,8 +190,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               value={editName}
               onChangeText={setEditName}
               placeholder="Your name"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={Colors.textMuted}
               autoCapitalize="words"
+              keyboardAppearance="dark"
             />
 
             <Text style={styles.inputLabel}>Email</Text>
@@ -198,10 +201,11 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               value={editEmail}
               onChangeText={setEditEmail}
               placeholder="Your email"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={Colors.textMuted}
               autoCapitalize="none"
               keyboardType="email-address"
               textContentType="emailAddress"
+              keyboardAppearance="dark"
             />
 
             <TouchableOpacity
@@ -211,19 +215,25 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               ]}
               onPress={handleSave}
               disabled={!dirty || saving}
+              activeOpacity={0.8}
             >
-              <Text style={styles.saveButtonText}>
-                {saving ? 'Saving...' : 'Save Changes'}
-              </Text>
+              <LinearGradient
+                colors={[...Gradient]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.saveButtonGradient}
+              >
+                <Text style={styles.saveButtonText}>
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
 
-          {/* Member Since */}
           <Text style={styles.memberSince}>
             Member since {formatMemberSince(profile.createdAt)}
           </Text>
 
-          {/* Sign Out */}
           <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
@@ -236,7 +246,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: Colors.background,
   },
   flex: {
     flex: 1,
@@ -246,20 +256,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: Colors.border,
   },
   backButton: {
     fontSize: 24,
-    color: '#4F46E5',
+    color: Colors.primaryLight,
     paddingRight: 12,
   },
   headerTitle: {
     flex: 1,
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: Colors.textPrimary,
   },
   headerSpacer: {
     width: 36,
@@ -271,7 +281,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: Colors.textSecondary,
   },
   scrollContent: {
     padding: 16,
@@ -285,7 +295,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#4F46E5',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -298,12 +307,12 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: Colors.textPrimary,
     marginBottom: 4,
   },
   profileEmail: {
     fontSize: 14,
-    color: '#6B7280',
+    color: Colors.textSecondary,
   },
   statsRow: {
     flexDirection: 'row',
@@ -312,68 +321,64 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   statValue: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#4F46E5',
+    color: Colors.primaryLight,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 13,
-    color: '#6B7280',
+    color: Colors.textSecondary,
   },
   editSection: {
-    backgroundColor: '#fff',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: Colors.textPrimary,
     marginBottom: 16,
   },
   inputLabel: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#374151',
+    color: Colors.textSecondary,
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: Colors.inputBorder,
+    backgroundColor: Colors.elevated,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     marginBottom: 14,
-    color: '#111827',
-    backgroundColor: '#F9FAFB',
+    color: Colors.textPrimary,
   },
   saveButton: {
-    backgroundColor: '#4F46E5',
     borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
+    overflow: 'hidden',
     marginTop: 4,
   },
   saveButtonDisabled: {
     opacity: 0.5,
+  },
+  saveButtonGradient: {
+    padding: 14,
+    alignItems: 'center',
   },
   saveButtonText: {
     color: '#fff',
@@ -383,20 +388,20 @@ const styles = StyleSheet.create({
   memberSince: {
     textAlign: 'center',
     fontSize: 13,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     marginBottom: 24,
   },
   signOutButton: {
-    backgroundColor: '#fff',
+    backgroundColor: Colors.dangerMuted,
     borderRadius: 8,
     padding: 14,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#FCA5A5',
+    borderColor: 'rgba(248,113,113,0.3)',
     marginBottom: 32,
   },
   signOutText: {
-    color: '#EF4444',
+    color: Colors.danger,
     fontSize: 15,
     fontWeight: '600',
   },

@@ -8,10 +8,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getTransactions } from '../api/user';
 import type { Transaction } from '../types/api';
 import type { MainStackParamList } from '../types/navigation';
+import { Colors, Gradient } from '../constants/theme';
+import { formatRSD } from '../utils/format';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'History'>;
 
@@ -24,7 +27,10 @@ const formatDate = (dateString: string) => {
   });
 };
 
-const TransactionCard: React.FC<{ item: Transaction }> = ({ item }) => {
+const TransactionCard: React.FC<{
+  item: Transaction;
+  onShowDetails: (transaction: Transaction) => void;
+}> = ({ item, onShowDetails }) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -35,8 +41,22 @@ const TransactionCard: React.FC<{ item: Transaction }> = ({ item }) => {
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardLeft}>
-          <Text style={styles.storeName}>{item.store.name}</Text>
+          <Text style={styles.storeName}>{item.store?.name ?? 'Unknown Store'}</Text>
           <Text style={styles.cardDate}>{formatDate(item.date)}</Text>
+          {item.items.length > 0 && (
+            <View style={styles.productPreviewList}>
+              {item.items.slice(0, 3).map((i, idx) => (
+                <Text key={idx} style={styles.productPreviewItem} numberOfLines={1}>
+                  {i.productName}
+                </Text>
+              ))}
+              {item.items.length > 3 && (
+                <Text style={styles.productPreviewMore}>
+                  +{item.items.length - 3} more
+                </Text>
+              )}
+            </View>
+          )}
         </View>
         <View style={styles.cardRight}>
           <View style={styles.pointsPill}>
@@ -55,7 +75,7 @@ const TransactionCard: React.FC<{ item: Transaction }> = ({ item }) => {
               <View style={styles.itemLeft}>
                 <Text style={styles.itemName}>{ti.productName}</Text>
                 <Text style={styles.itemDetail}>
-                  {ti.quantity} x {Number(ti.unitPrice).toFixed(2)} RSD
+                  {ti.quantity} x {formatRSD(ti.unitPrice)}
                 </Text>
               </View>
               <Text style={styles.itemPoints}>
@@ -66,9 +86,23 @@ const TransactionCard: React.FC<{ item: Transaction }> = ({ item }) => {
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalAmount}>
-              {Number(item.totalAmount).toFixed(2)} RSD
+              {formatRSD(item.totalAmount)}
             </Text>
           </View>
+          <TouchableOpacity
+            style={styles.detailsButton}
+            onPress={() => onShowDetails(item)}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={[...Gradient]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.detailsButtonGradient}
+            >
+              <Text style={styles.detailsButtonText}>Show Details</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -88,11 +122,11 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const res = await getTransactions();
       const sorted = [...res.data].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
       setTransactions(sorted);
     } catch {
-      // silently fail — user sees empty state or stale data
+      // silently fail
     }
   }, []);
 
@@ -108,7 +142,6 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>{'\u2190'}</Text>
@@ -119,13 +152,18 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#4F46E5" />
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       ) : (
         <FlatList
           data={transactions}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <TransactionCard item={item} />}
+          renderItem={({ item }) => (
+            <TransactionCard
+              item={item}
+              onShowDetails={(tx) => navigation.navigate('TransactionDetail', { transaction: tx })}
+            />
+          )}
           contentContainerStyle={
             transactions.length === 0
               ? styles.emptyListContainer
@@ -151,27 +189,27 @@ export const HistoryScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: Colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: Colors.border,
   },
   backButton: {
     fontSize: 24,
-    color: '#4F46E5',
+    color: Colors.primaryLight,
     paddingRight: 12,
   },
   headerTitle: {
     flex: 1,
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: Colors.textPrimary,
   },
   headerSpacer: {
     width: 36,
@@ -188,15 +226,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -210,31 +245,44 @@ const styles = StyleSheet.create({
   storeName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: Colors.textPrimary,
     marginBottom: 4,
   },
   cardDate: {
     fontSize: 13,
-    color: '#6B7280',
+    color: Colors.textSecondary,
+  },
+  productPreviewList: {
+    marginTop: 6,
+  },
+  productPreviewItem: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 2,
+  },
+  productPreviewMore: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    fontStyle: 'italic',
   },
   cardRight: {
     alignItems: 'flex-end',
   },
   pointsPill: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: Colors.successMuted,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     marginBottom: 4,
   },
   pointsText: {
-    color: '#059669',
+    color: Colors.success,
     fontSize: 13,
     fontWeight: '600',
   },
   itemCount: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
   },
   expandIndicator: {
     alignItems: 'center',
@@ -242,12 +290,12 @@ const styles = StyleSheet.create({
   },
   expandArrow: {
     fontSize: 10,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
   },
   itemsContainer: {
     marginTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: Colors.border,
     paddingTop: 12,
   },
   itemRow: {
@@ -262,36 +310,50 @@ const styles = StyleSheet.create({
   },
   itemName: {
     fontSize: 14,
-    color: '#374151',
+    color: Colors.textPrimary,
     fontWeight: '500',
   },
   itemDetail: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     marginTop: 2,
   },
   itemPoints: {
     fontSize: 13,
-    color: '#059669',
+    color: Colors.success,
     fontWeight: '500',
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: Colors.border,
     marginTop: 8,
     paddingTop: 8,
   },
   totalLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: Colors.textSecondary,
   },
   totalAmount: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: Colors.textPrimary,
+  },
+  detailsButton: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+  detailsButtonGradient: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  detailsButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
   emptyState: {
     flex: 1,
@@ -306,12 +368,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
+    color: Colors.textSecondary,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     textAlign: 'center',
   },
 });

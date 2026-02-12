@@ -1,30 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, Alert, StyleSheet, Linking } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import type { BarcodeScanningResult } from 'expo-camera';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { getPoints, scanQrCode } from '../api/points';
 import { useAuth } from '../hooks/useAuth';
 import { ScannerOverlay } from '../components/ScannerOverlay';
 import type { ApiError } from '../types/api';
 import type { MainStackParamList } from '../types/navigation';
 import { AxiosError } from 'axios';
+import { Colors } from '../constants/theme';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'Scanner'>;
 
 export const ScannerScreen: React.FC<Props> = ({ navigation }) => {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const [points, setPoints] = useState<number | null>(null);
   const [scanning, setScanning] = useState(false);
   const processingRef = useRef(false);
 
-  // Fetch points balance on mount
-  useEffect(() => {
-    getPoints()
-      .then((res) => setPoints(res.data.pointsBalance))
-      .catch(() => {});
-  }, []);
+  // Reset processing lock and refresh balance when screen regains focus
+  useFocusEffect(
+    useCallback(() => {
+      processingRef.current = false;
+      getPoints()
+        .then((res) => setPoints(res.data.pointsBalance))
+        .catch(() => {});
+    }, []),
+  );
 
   const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
     if (processingRef.current) return;
@@ -34,11 +39,7 @@ export const ScannerScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const res = await scanQrCode({ qrCodeData: result.data });
       setPoints(res.data.newBalance);
-      Alert.alert(
-        'Success',
-        `Points earned: ${res.data.pointsEarned}\nNew balance: ${res.data.newBalance.toLocaleString()}`,
-        [{ text: 'OK', onPress: () => { processingRef.current = false; } }],
-      );
+      navigation.navigate('ScanResult', { scanData: res.data });
     } catch (err) {
       const axiosErr = err as AxiosError<ApiError>;
       const msg = axiosErr.response?.data?.message;
@@ -94,6 +95,7 @@ export const ScannerScreen: React.FC<Props> = ({ navigation }) => {
         onLogout={signOut}
         onHistory={() => navigation.navigate('History')}
         onProfile={() => navigation.navigate('Profile')}
+        onAdmin={user?.role === 'admin' ? () => navigation.navigate('AdminDashboard') : undefined}
       />
     </View>
   );
@@ -108,25 +110,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: Colors.background,
     paddingHorizontal: 32,
   },
   permissionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: Colors.textPrimary,
     marginBottom: 12,
   },
   permissionText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 22,
   },
   permissionLink: {
     fontSize: 16,
-    color: '#4F46E5',
+    color: Colors.primaryLight,
     fontWeight: '600',
   },
 });

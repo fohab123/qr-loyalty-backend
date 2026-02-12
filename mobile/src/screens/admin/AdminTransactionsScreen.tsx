@@ -13,6 +13,7 @@ import type { MainStackParamList } from '../../types/navigation';
 import type { AdminTransaction, Transaction } from '../../types/api';
 import { getTransactions } from '../../api/admin';
 import { Colors, Spacing, BorderRadius, FontSize } from '../../constants/theme';
+import { formatRSD } from '../../utils/format';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'AdminTransactions'>;
 
@@ -33,7 +34,7 @@ export const AdminTransactionsScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const res = await getTransactions();
       const sorted = [...res.data].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
       setTransactions(sorted);
     } catch {
@@ -60,16 +61,30 @@ export const AdminTransactionsScreen: React.FC<Props> = ({ navigation }) => {
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardLeft}>
-          <Text style={styles.storeName}>{item.store.name}</Text>
-          <Text style={styles.userName}>{item.user.name}</Text>
+          <Text style={styles.storeName}>{item.store?.name ?? 'Unknown Store'}</Text>
+          <Text style={styles.userName}>{item.user?.name ?? 'Unknown User'}</Text>
           <Text style={styles.dateText}>{formatDate(item.date)}</Text>
+          {item.items.length > 0 && (
+            <View style={styles.productPreviewList}>
+              {item.items.slice(0, 3).map((i, idx) => (
+                <Text key={idx} style={styles.productPreviewItem} numberOfLines={1}>
+                  {i.productName}
+                </Text>
+              ))}
+              {item.items.length > 3 && (
+                <Text style={styles.productPreviewMore}>
+                  +{item.items.length - 3} more
+                </Text>
+              )}
+            </View>
+          )}
         </View>
         <View style={styles.cardRight}>
           <View style={styles.pointsPill}>
             <Text style={styles.pointsText}>+{item.pointsEarned} pts</Text>
           </View>
           <Text style={styles.amountText}>
-            {Number(item.totalAmount).toFixed(2)} RSD
+            {formatRSD(item.totalAmount)}
           </Text>
         </View>
       </View>
@@ -189,6 +204,19 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: FontSize.xs,
     color: Colors.textMuted,
+  },
+  productPreviewList: {
+    marginTop: Spacing.xs,
+  },
+  productPreviewItem: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    marginBottom: 2,
+  },
+  productPreviewMore: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    fontStyle: 'italic',
   },
   cardRight: {
     alignItems: 'flex-end',
