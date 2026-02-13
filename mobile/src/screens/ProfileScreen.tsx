@@ -14,7 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { getProfile, updateProfile, getTransactions } from '../api/user';
+import { getProfile, updateProfile, getTransactions, getFavoriteStores, addFavoriteStore, removeFavoriteStore } from '../api/user';
+import { getStores } from '../api/promotions';
 import { useAuth } from '../hooks/useAuth';
 import type { UserProfile, ApiError } from '../types/api';
 import type { MainStackParamList } from '../types/navigation';
@@ -42,16 +43,25 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
+  const [favoriteStores, setFavoriteStores] = useState<Array<{ id: string; name: string }>>([]);
+  const [allStores, setAllStores] = useState<Array<{ id: string; name: string }>>([]);
+  const [showStorePicker, setShowStorePicker] = useState(false);
+  const [togglingStore, setTogglingStore] = useState<string | null>(null);
+
   const fetchData = useCallback(async () => {
     try {
-      const [profileRes, txRes] = await Promise.all([
+      const [profileRes, txRes, favRes, storesRes] = await Promise.all([
         getProfile(),
         getTransactions(),
+        getFavoriteStores(),
+        getStores(),
       ]);
       setProfile(profileRes.data);
       setEditName(profileRes.data.name);
       setEditEmail(profileRes.data.email);
       setTransactionCount(txRes.data.length);
+      setFavoriteStores(favRes.data);
+      setAllStores(storesRes.data);
     } catch {
       // silently fail
     }
@@ -94,6 +104,26 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: signOut },
     ]);
+  };
+
+  const handleToggleFavorite = async (storeId: string) => {
+    if (togglingStore) return;
+    setTogglingStore(storeId);
+    const isFav = favoriteStores.some((s) => s.id === storeId);
+    try {
+      if (isFav) {
+        await removeFavoriteStore(storeId);
+        setFavoriteStores((prev) => prev.filter((s) => s.id !== storeId));
+      } else {
+        await addFavoriteStore(storeId);
+        const store = allStores.find((s) => s.id === storeId);
+        if (store) setFavoriteStores((prev) => [...prev, store]);
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to update favorite stores');
+    } finally {
+      setTogglingStore(null);
+    }
   };
 
   if (loading) {
@@ -179,6 +209,71 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.statValue}>{transactionCount}</Text>
               <Text style={styles.statLabel}>Transactions</Text>
             </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.usePointsButton}
+            onPress={() => navigation.navigate('UsePoints')}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={[...Gradient]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.usePointsGradient}
+            >
+              <Text style={styles.usePointsText}>Use Points</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <View style={styles.editSection}>
+            <View style={styles.favHeader}>
+              <Text style={styles.sectionTitle}>Favorite Stores</Text>
+              <TouchableOpacity onPress={() => setShowStorePicker((v) => !v)}>
+                <Text style={styles.manageButton}>
+                  {showStorePicker ? 'Done' : 'Manage'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {favoriteStores.length === 0 && !showStorePicker ? (
+              <Text style={styles.favEmpty}>
+                No favorite stores yet. Tap Manage to add some.
+              </Text>
+            ) : (
+              <View style={styles.favChips}>
+                {favoriteStores.map((store) => (
+                  <View key={store.id} style={styles.favChip}>
+                    <Text style={styles.favChipHeart}>{'\u2764'}</Text>
+                    <Text style={styles.favChipText}>{store.name}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {showStorePicker && (
+              <>
+                <View style={styles.favDivider} />
+                <Text style={styles.favAllTitle}>All Stores</Text>
+                {allStores.map((store) => {
+                  const isFav = favoriteStores.some((s) => s.id === store.id);
+                  return (
+                    <TouchableOpacity
+                      key={store.id}
+                      style={styles.storeRow}
+                      onPress={() => handleToggleFavorite(store.id)}
+                      disabled={togglingStore === store.id}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.storeRowName}>{store.name}</Text>
+                      <Text style={[styles.storeRowHeart, isFav && styles.storeRowHeartActive]}>
+                        {isFav ? '\u2764' : '\u2661'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            )}
           </View>
 
           <View style={styles.editSection}>
@@ -338,6 +433,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
   },
+  usePointsButton: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  usePointsGradient: {
+    padding: 14,
+    alignItems: 'center',
+  },
+  usePointsText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
   editSection: {
     backgroundColor: Colors.surface,
     borderRadius: 12,
@@ -384,6 +493,76 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '600',
+  },
+  favHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  manageButton: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primaryLight,
+  },
+  favEmpty: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
+  favChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  favChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primaryLight + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    gap: 4,
+  },
+  favChipHeart: {
+    fontSize: 12,
+    color: Colors.danger,
+  },
+  favChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primaryLight,
+  },
+  favDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: 12,
+  },
+  favAllTitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  storeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  storeRowName: {
+    fontSize: 15,
+    color: Colors.textPrimary,
+  },
+  storeRowHeart: {
+    fontSize: 20,
+    color: Colors.textMuted,
+  },
+  storeRowHeartActive: {
+    color: Colors.danger,
   },
   memberSince: {
     textAlign: 'center',

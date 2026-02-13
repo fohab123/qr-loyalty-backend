@@ -8,6 +8,7 @@ import { UserModule } from '../user/user.module';
 import { StoreModule } from '../store/store.module';
 import { ProductModule } from '../product/product.module';
 import { TransactionModule } from '../transaction/transaction.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { TransactionModule } from '../transaction/transaction.module';
     StoreModule,
     ProductModule,
     TransactionModule,
+    NotificationModule,
   ],
   controllers: [ReceiptController],
   providers: [ReceiptService, ReceiptFetcherService],

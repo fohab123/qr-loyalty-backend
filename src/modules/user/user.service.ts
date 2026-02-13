@@ -97,6 +97,10 @@ export class UserService {
     return user.favoriteStores;
   }
 
+  async updatePushToken(userId: string, pushToken: string): Promise<void> {
+    await this.userRepository.update(userId, { pushToken });
+  }
+
   async getTransactions(userId: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },

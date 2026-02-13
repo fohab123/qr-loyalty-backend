@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Param,
   Patch,
@@ -10,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { RegisterPushTokenDto } from './dto/register-push-token.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole } from './user.entity';
@@ -35,6 +37,14 @@ export class UserController {
     @Body() dto: UpdateUserDto,
   ) {
     return this.userService.update(userId, dto);
+  }
+
+  @Put('me/push-token')
+  updatePushToken(
+    @CurrentUser('id') userId: string,
+    @Body() dto: RegisterPushTokenDto,
+  ) {
+    return this.userService.updatePushToken(userId, dto.pushToken);
   }
 
   @Get('me/transactions')

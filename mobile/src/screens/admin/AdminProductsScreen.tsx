@@ -46,6 +46,7 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
   const [newPoints, setNewPoints] = useState('');
   const [creating, setCreating] = useState(false);
   const [sendingToReview, setSendingToReview] = useState(false);
+  const [search, setSearch] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -104,6 +105,17 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
       })
       .map(([title, data]) => ({ title, data }));
   }, [products, storeData]);
+
+  const filteredSections = useMemo((): ProductSection[] => {
+    const q = search.trim().toLowerCase();
+    if (!q) return sections;
+    return sections
+      .map((s) => ({
+        ...s,
+        data: s.data.filter((p) => (p.name ?? '').toLowerCase().includes(q)),
+      }))
+      .filter((s) => s.data.length > 0);
+  }, [sections, search]);
 
   const handleEdit = (product: AdminProduct) => {
     if (product.status === 'rejected') return;
@@ -164,7 +176,7 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
 
   const renderItem = ({ item }: { item: AdminProduct }) => {
     const isEditing = editingId === item.id;
-    const sc = statusColors[item.status];
+    const sc = statusColors[item.status] ?? { bg: Colors.elevated, text: Colors.textMuted };
     const isRejected = item.status === 'rejected';
     const isPending = item.status === 'pending';
 
@@ -198,46 +210,7 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
-        {isEditing && isPending && (
-          <View style={styles.editSection}>
-            <TouchableOpacity
-              style={styles.reviewButtonWrap}
-              disabled={sendingToReview}
-              onPress={async () => {
-                setSendingToReview(true);
-                try {
-                  await createReviewRequest({ productId: item.id });
-                  setEditingId(null);
-                  navigation.navigate('AdminReviewRequests', { autoExpandProductId: item.id });
-                } catch (err: any) {
-                  const msg = err?.response?.data?.message;
-                  if (msg?.includes('already have a pending')) {
-                    // Review request already exists, just navigate
-                    setEditingId(null);
-                    navigation.navigate('AdminReviewRequests', { autoExpandProductId: item.id });
-                  } else {
-                    Alert.alert('Error', typeof msg === 'string' ? msg : 'Failed to send to review.');
-                  }
-                } finally {
-                  setSendingToReview(false);
-                }
-              }}
-            >
-              <LinearGradient
-                colors={[Colors.warning, '#F59E0B']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.reviewButton}
-              >
-                <Text style={styles.reviewButtonText}>
-                  {sendingToReview ? 'Sending...' : 'Send to Review'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {isEditing && !isPending && (
+        {isEditing && (
           <View style={styles.editSection}>
             <Text style={styles.editLabel}>Points Value</Text>
             <View style={styles.editRow}>
@@ -267,6 +240,42 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
                 </LinearGradient>
               </TouchableOpacity>
             </View>
+
+            {isPending && (
+              <TouchableOpacity
+                style={[styles.reviewButtonWrap, { marginTop: Spacing.md }]}
+                disabled={sendingToReview}
+                onPress={async () => {
+                  setSendingToReview(true);
+                  try {
+                    await createReviewRequest({ productId: item.id });
+                    setEditingId(null);
+                    navigation.navigate('AdminReviewRequests', { autoExpandProductId: item.id });
+                  } catch (err: any) {
+                    const msg = err?.response?.data?.message;
+                    if (msg?.includes('already have a pending')) {
+                      setEditingId(null);
+                      navigation.navigate('AdminReviewRequests', { autoExpandProductId: item.id });
+                    } else {
+                      Alert.alert('Error', typeof msg === 'string' ? msg : 'Failed to send to review.');
+                    }
+                  } finally {
+                    setSendingToReview(false);
+                  }
+                }}
+              >
+                <LinearGradient
+                  colors={[Colors.warning, '#F59E0B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.reviewButton}
+                >
+                  <Text style={styles.reviewButtonText}>
+                    {sendingToReview ? 'Sending...' : 'Send to Review'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </TouchableOpacity>
@@ -292,13 +301,31 @@ export const AdminProductsScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.searchBar}>
+        <TextInput
+          style={styles.searchInput}
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search products..."
+          placeholderTextColor={Colors.textMuted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardAppearance="dark"
+        />
+        {search.length > 0 && (
+          <TouchableOpacity style={styles.searchClear} onPress={() => setSearch('')}>
+            <Text style={styles.searchClearText}>{'\u2715'}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       ) : (
         <SectionList
-          sections={sections}
+          sections={filteredSections}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
@@ -399,6 +426,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     width: 36,
     textAlign: 'center',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: Colors.elevated,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: FontSize.base,
+    color: Colors.textPrimary,
+  },
+  searchClear: {
+    marginLeft: Spacing.sm,
+    padding: Spacing.xs,
+  },
+  searchClearText: {
+    fontSize: FontSize.lg,
+    color: Colors.textMuted,
   },
   centered: {
     flex: 1,

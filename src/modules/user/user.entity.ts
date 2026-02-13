@@ -10,6 +10,7 @@ import { Transaction } from '../transaction/transaction.entity';
 import { ReviewRequest } from '../review-request/review-request.entity';
 import { Receipt } from '../receipt/receipt.entity';
 import { Store } from '../store/store.entity';
+import { Offer } from '../offer/offer.entity';
 
 export enum UserRole {
   USER = 'user',
@@ -37,6 +38,9 @@ export class User extends BaseEntity {
   @Column({ type: 'int', default: 0 })
   pointsBalance: number;
 
+  @Column({ nullable: true })
+  pushToken: string;
+
   @ManyToMany(() => Store)
   @JoinTable({ name: 'user_favorite_stores' })
   favoriteStores: Store[];
@@ -49,4 +53,7 @@ export class User extends BaseEntity {
 
   @OneToMany(() => ReviewRequest, (request) => request.submittedBy)
   reviewRequests: ReviewRequest[];
+
+  @OneToMany(() => Offer, (offer) => offer.user)
+  offers: Offer[];
 }

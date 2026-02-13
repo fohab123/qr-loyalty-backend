@@ -11,6 +11,9 @@ import { ReceiptModule } from './modules/receipt/receipt.module';
 import { PointsModule } from './modules/points/points.module';
 import { ReviewRequestModule } from './modules/review-request/review-request.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { PromotionModule } from './modules/promotion/promotion.module';
+import { OfferModule } from './modules/offer/offer.module';
+import { NotificationModule } from './modules/notification/notification.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
@@ -31,6 +34,9 @@ import { RolesGuard } from './modules/auth/guards/roles.guard';
     PointsModule,
     ReviewRequestModule,
     AnalyticsModule,
+    PromotionModule,
+    OfferModule,
+    NotificationModule,
   ],
   providers: [
     {

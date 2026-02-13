@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../types/navigation';
 import * as adminApi from '../../api/admin';
+import { getAllPromotions, getAllOffers } from '../../api/promotions';
 import { Colors, Gradient, Spacing, BorderRadius, FontSize } from '../../constants/theme';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'AdminDashboard'>;
@@ -22,6 +23,8 @@ interface SectionCount {
   products: number;
   users: number;
   transactions: number;
+  promotions: number;
+  offers: number;
 }
 
 const sections = [
@@ -29,6 +32,8 @@ const sections = [
   { key: 'products' as const, label: 'Products', icon: '\u{1F4E6}', route: 'AdminProducts' as const },
   { key: 'users' as const, label: 'Users', icon: '\u{1F465}', route: 'AdminUsers' as const },
   { key: 'transactions' as const, label: 'Transactions', icon: '\u{1F4B3}', route: 'AdminTransactions' as const },
+  { key: 'promotions' as const, label: 'Promotions', icon: '\u{1F3F7}', route: 'AdminPromotions' as const },
+  { key: 'offers' as const, label: 'Offers', icon: '\u{1F381}', route: 'AdminOffers' as const },
 ];
 
 export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
@@ -37,6 +42,8 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
     products: 0,
     users: 0,
     transactions: 0,
+    promotions: 0,
+    offers: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -44,17 +51,21 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
     useCallback(() => {
       const fetchCounts = async () => {
         try {
-          const [rr, prod, usr, tx] = await Promise.all([
+          const [rr, prod, usr, tx, promo, off] = await Promise.all([
             adminApi.getReviewRequests(),
             adminApi.getProducts(),
             adminApi.getUsers(),
             adminApi.getTransactions(),
+            getAllPromotions().catch(() => ({ data: [] })),
+            getAllOffers().catch(() => ({ data: [] })),
           ]);
           setCounts({
             reviewRequests: rr.data.length,
             products: prod.data.length,
             users: usr.data.length,
             transactions: tx.data.length,
+            promotions: promo.data.length,
+            offers: off.data.length,
           });
         } catch {
           // silently fail

@@ -33,7 +33,8 @@
         {
           "cameraPermission": "Allow QR Loyalty to scan receipt QR codes"
         }
-      ]
+      ],
+      "expo-notifications"
     ]
   }
 }

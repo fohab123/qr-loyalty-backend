@@ -16,6 +16,7 @@ import { Transaction } from '../transaction/transaction.entity';
 import { TransactionItem } from '../transaction/transaction-item.entity';
 import { User } from '../user/user.entity';
 import { ScanReceiptDto } from './dto/scan-receipt.dto';
+import { NotificationService } from '../notification/notification.service';
 
 export interface ScanResultItem {
   productId: string;
@@ -41,6 +42,7 @@ export class ReceiptService {
     private readonly storeService: StoreService,
     private readonly productService: ProductService,
     private readonly dataSource: DataSource,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async scanReceipt(userId: string, dto: ScanReceiptDto): Promise<ScanResult> {
@@ -172,6 +174,14 @@ export class ReceiptService {
       );
 
       await queryRunner.commitTransaction();
+
+      if (user.pushToken) {
+        this.notificationService.sendPushNotification(
+          user.pushToken,
+          'Points Added!',
+          `You earned ${totalPointsEarned} points from ${parsedReceipt.storeName}`,
+        );
+      }
 
       return {
         transactionId: savedTransaction.id,

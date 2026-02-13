@@ -94,6 +94,7 @@ export const ScannerScreen: React.FC<Props> = ({ navigation }) => {
         scanning={scanning}
         onLogout={signOut}
         onHistory={() => navigation.navigate('History')}
+        onDeals={() => navigation.navigate('Promotions')}
         onProfile={() => navigation.navigate('Profile')}
         onAdmin={user?.role === 'admin' ? () => navigation.navigate('AdminDashboard') : undefined}
       />

@@ -90,6 +90,16 @@ export interface UpdateProfileRequest {
   email?: string;
 }
 
+export interface UsePointsRequest {
+  points: number;
+}
+
+export interface UsePointsResponse {
+  userId: string;
+  pointsUsed: number;
+  newBalance: number;
+}
+
 export interface ApiError {
   statusCode: number;
   message: string | string[];
@@ -222,4 +232,80 @@ export interface GroupedReviewTransactions {
     userName: string;
     transactions: ReviewRequestTransaction[];
   }>;
+}
+
+// Promotion & Offer types
+
+export interface Promotion {
+  id: string;
+  title: string;
+  description: string;
+  discountPercentage: number;
+  storeId: string;
+  store: { id: string; name: string };
+  startDate: string;
+  endDate: string;
+  status: string;
+  minPointsRequired: number | null;
+}
+
+export interface PromotionsForUser {
+  favoriteStorePromotions: Promotion[];
+  otherPromotions: Promotion[];
+}
+
+export interface CreatePromotionRequest {
+  title: string;
+  description?: string;
+  discountPercentage: number;
+  storeId: string;
+  startDate: string;
+  endDate: string;
+  status?: string;
+  minPointsRequired?: number;
+}
+
+export interface UpdatePromotionRequest {
+  title?: string;
+  description?: string;
+  discountPercentage?: number;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  minPointsRequired?: number;
+}
+
+export interface Offer {
+  id: string;
+  title: string;
+  description: string;
+  discountPercentage: number;
+  userId: string;
+  storeId: string;
+  store: { id: string; name: string };
+  user?: { id: string; name: string; email: string };
+  promotionId: string | null;
+  promotion?: Promotion;
+  expiresAt: string;
+  status: string;
+  claimedAt: string | null;
+}
+
+export interface CreateOfferRequest {
+  title: string;
+  description?: string;
+  discountPercentage: number;
+  userId: string;
+  storeId: string;
+  promotionId?: string;
+  expiresAt: string;
+  status?: string;
+}
+
+export interface UpdateOfferRequest {
+  title?: string;
+  description?: string;
+  discountPercentage?: number;
+  expiresAt?: string;
+  status?: string;
 }

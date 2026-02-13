@@ -2,6 +2,7 @@ import { Entity, Column, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { Transaction } from '../transaction/transaction.entity';
 import { Receipt } from '../receipt/receipt.entity';
+import { Promotion } from '../promotion/promotion.entity';
 
 @Entity('stores')
 export class Store extends BaseEntity {
@@ -16,4 +17,7 @@ export class Store extends BaseEntity {
 
   @OneToMany(() => Receipt, (receipt) => receipt.store)
   receipts: Receipt[];
+
+  @OneToMany(() => Promotion, (promotion) => promotion.store)
+  promotions: Promotion[];
 }

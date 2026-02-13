@@ -3,7 +3,7 @@ export type AuthStackParamList = {
   Register: undefined;
 };
 
-import type { ScanResponse, Transaction } from './api';
+import type { ScanResponse, Transaction, Offer } from './api';
 
 export type MainStackParamList = {
   Scanner: undefined;
@@ -17,4 +17,10 @@ export type MainStackParamList = {
   AdminUsers: undefined;
   AdminTransactions: undefined;
   AdminAnalytics: undefined;
+  Promotions: undefined;
+  Offers: undefined;
+  AdminPromotions: undefined;
+  AdminOffers: undefined;
+  OfferBarcode: { offer: Offer };
+  UsePoints: undefined;
 };

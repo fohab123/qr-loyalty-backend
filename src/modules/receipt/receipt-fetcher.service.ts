@@ -173,12 +173,21 @@ export class ReceiptFetcherService {
 
   private parseNumber(value: string): number {
     if (!value) return 0;
-    // Handle Serbian/European number format:
+    const trimmed = value.replace(/\s/g, '');
+
+    // If the value contains a comma, it's European format:
     // dots are thousands separators, comma is decimal separator
-    // e.g. "3.240,50" → 3240.50, "3.240" → 3240, "94,99" → 94.99
-    const cleaned = value.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
-    const num = parseFloat(cleaned);
-    return isNaN(num) ? 0 : num;
+    // e.g. "3.240,50" → 3240, "94,99" → 94
+    if (trimmed.includes(',')) {
+      const cleaned = trimmed.replace(/\./g, '').replace(',', '.');
+      const num = parseFloat(cleaned);
+      return isNaN(num) ? 0 : Math.floor(num);
+    }
+
+    // Otherwise it's standard format (dot is decimal separator)
+    // e.g. "815.42" → 815, "3602" → 3602
+    const num = parseFloat(trimmed);
+    return isNaN(num) ? 0 : Math.floor(num);
   }
 
   private generateMockReceipt(url: string): ParsedReceipt {

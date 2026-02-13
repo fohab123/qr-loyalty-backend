@@ -3,6 +3,7 @@ import { UserService } from '../user/user.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../user/user.entity';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class PointsService {
@@ -10,6 +11,7 @@ export class PointsService {
     private readonly userService: UserService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async getPoints(userId: string) {
@@ -31,6 +33,14 @@ export class PointsService {
 
     user.pointsBalance -= points;
     await this.userRepository.save(user);
+
+    if (user.pushToken) {
+      this.notificationService.sendPushNotification(
+        user.pushToken,
+        'Points Used',
+        `${points} points spent. New balance: ${user.pointsBalance}`,
+      );
+    }
 
     return {
       userId: user.id,
